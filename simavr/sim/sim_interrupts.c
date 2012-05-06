@@ -224,6 +224,8 @@ avr_service_interrupts(
 		_avr_push16(avr, avr->pc >> 1);
 		avr->sreg[S_I] = 0;
 		avr->pc = vector->vector * avr->vector_size;
+		if(avr_regbit_get(avr, avr->ivsel))
+			avr->pc += avr->blsection;
 
 		avr_clear_interrupt(avr, vector);
 	}

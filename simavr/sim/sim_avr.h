@@ -191,6 +191,9 @@ typedef struct avr_t {
 	 * It CAN be a little confusing, so concentrate, young grasshopper.
 	 */
 	avr_flashaddr_t	pc;
+	
+	avr_regbit_t	ivsel;
+	avr_flashaddr_t blsection;
 
 	/*
 	 * callback when specific IO registers are read/written.

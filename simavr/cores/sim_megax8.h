@@ -71,6 +71,9 @@ const struct mcu_t SIM_CORENAME = {
 
 		.init = mx8_init,
 		.reset = mx8_reset,
+		#ifdef IVSEL
+		.ivsel = AVR_IO_REGBIT(MCUCR, IVSEL),
+		#endif
 	},
 	AVR_EEPROM_DECLARE(EE_READY_vect),
 	AVR_SELFPROG_DECLARE(SPMCSR, SELFPRGEN, SPM_READY_vect),
@@ -117,6 +120,7 @@ const struct mcu_t SIM_CORENAME = {
 		.usbs = AVR_IO_REGBIT(UCSR0C, USBS0),
 		.ucsz = AVR_IO_REGBITS(UCSR0C, UCSZ00, 0x3), // 2 bits
 		.ucsz2 = AVR_IO_REGBIT(UCSR0B, UCSZ02), 	// 1 bits
+		.u2x = AVR_IO_REGBIT(UCSR0A, U2X0),
 
 		.r_ucsra = UCSR0A,
 		.r_ucsrb = UCSR0B,
