@@ -199,6 +199,10 @@ static void avr_uart_write(struct avr_t * avr, avr_io_addr_t addr, uint8_t v, vo
 		//avr_clear_interrupt_if(avr, &p->udrc, udre);
 		avr_clear_interrupt_if(avr, &p->txc, txc);
 	}
+	if(addr == p->r_ucsra) {
+		//Baud rate can be updated by toggling u2x bit
+		avr_uart_baud_write(avr, addr, v, param);
+	}
 }
 
 static void avr_uart_irq_input(struct avr_irq_t * irq, uint32_t value, void * param)
