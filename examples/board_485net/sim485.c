@@ -2,6 +2,10 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <pthread.h>
+#include <poll.h>
 
 #include "sim_avr.h"
 #include "avr_eeprom.h"
@@ -11,6 +15,8 @@
 
 avr_t * avr = NULL;
 char *flfile, *eefile;
+int outfifo, infifo;
+pthread_mutex_t auxfifomutex = PTHREAD_MUTEX_INITIALIZER;
 
 #define RED		"\x1b[31m"
 #define GREEN	"\x1b[32m"
@@ -195,6 +201,10 @@ static void txe_changed(struct avr_irq_t * irq, uint32_t value, void *param)
 		}
 		printf("\n" RESET);
 		
+		char l = a->bufout_fill_to;
+		write(outfifo, &l, 1);	//length
+		write(outfifo, a->bufout, l);	//save
+		
 		a->bufout_fill_to = 0;
 		a->bufout_resent_to = 0;
 		//this should be safe under most cases
@@ -231,6 +241,9 @@ static void rxe_changed(struct avr_irq_t * irq, uint32_t value, void *param)
 		printf(BLUE "rxe was DISABLED\n" RESET);
 		a->rx_is_on = 0;
 		
+	
+		pthread_mutex_lock(&auxfifomutex);
+		
 		if(a->bufout_resent_to == a->bufout_fill_to)
 		{
 			//all the "immediate out" stuff is done, so we must have been sending something from the buffer
@@ -245,9 +258,13 @@ static void rxe_changed(struct avr_irq_t * irq, uint32_t value, void *param)
 	
 			advance_bufin(a);
 		}
+		else
+		{
+			printf(BLUE "--of the %d bytes, only %d were read\n" RESET, a->bufout_fill_to, a->bufout_resent_to);
+			a->bufout_resent_to = 0;
+		}
 		
-		printf(BLUE "--of the %d bytes, only %d were read\n" RESET, a->bufout_fill_to, a->bufout_resent_to);
-		a->bufout_resent_to = 0;
+		pthread_mutex_unlock(&auxfifomutex);
 	}
 }
 
@@ -284,10 +301,12 @@ int more_bytes_to_send(net_485net_t *a)
 
 static void uart_xon(struct avr_irq_t * irq, uint32_t value, void *param)
 {
-	//printf(BLUE "xon\n" RESET);
+	//printf(RED "xon\n" RESET);
 	net_485net_t *a = (net_485net_t *)(param);
 	
 	a->xon = 1;
+	
+	pthread_mutex_lock(&auxfifomutex);
 	
 	while(a->xon && a->rx_is_on && more_bytes_to_send(a))
 	{
@@ -297,6 +316,8 @@ static void uart_xon(struct avr_irq_t * irq, uint32_t value, void *param)
 			printf(BLUE "sending from own output the val %02X\n" RESET, c);
 			avr_raise_irq(a->irq + IRQ_485NET_RXBYTE, c);
 		}
+		
+		
 		if(a->bufin_ext_used[0])
 		{
 			unsigned char c = a->bufin_ext[a->bufin_ext_sent_to++];
@@ -307,11 +328,13 @@ static void uart_xon(struct avr_irq_t * irq, uint32_t value, void *param)
 				advance_bufin(a);
 		}
 	}
+	
+	pthread_mutex_unlock(&auxfifomutex);
 }
 
 static void uart_xoff(struct avr_irq_t * irq, uint32_t value, void *param)
 {
-	//printf(BLUE "xoff\n" RESET);
+	printf(GREEN "xoff\n" RESET);
 	net_485net_t *a = (net_485net_t *)(param);
 	
 	a->xon = 0;
@@ -342,18 +365,61 @@ void init_485hw(avr_t *avr, net_485net_t *a)
 	avr_ioctl(a->avr, AVR_IOCTL_UART_SET_FLAGS('0'), &f);
 }
 
+void fromrosthread(void *a_)
+{
+	struct pollfd pfd;
+	net_485net_t *a = (net_485net_t *)(a_);
+	
+	pfd.fd = infifo;
+	pfd.events = POLLIN|POLLPRI;
+
+	while(1)
+	{
+		poll(&pfd, 1, -1);
+		unsigned char c;
+		unsigned char buf[64];
+		read(infifo, &c, 1);
+		read(infifo, &buf[0], c);
+	
+		pthread_mutex_lock(&auxfifomutex);
+		
+		for(int i = 0; i < 16; i++)
+		{
+			if(a->bufin_ext_used[i] == 0)
+			{
+				printf("Adding ext data to slot %d\n", i);
+				a->bufin_ext_used[i] = c;
+				memcpy(&a->bufin_ext[i*64], buf, c);
+				break;
+			}
+		}
+		
+		pthread_mutex_unlock(&auxfifomutex);
+	}
+}
+
 int main(int argc, char *argv[])
 {
 	net_485net_t netdev;
+	pthread_t fromrost;
 	
-	if(argc < 3)
+	if(argc < 5)
 	{
-		printf("Usage: %s <persistent flash> <persistent eeprom>\n", argv[0]);
+		printf("Usage: %s <persistent flash> <persistent eeprom> <to ros pipe> <from ros pipe>\n", argv[0]);
 		return 1;
 	}
 	
 	flfile = argv[1];
 	eefile = argv[2];
+	
+	outfifo = open(argv[3], O_WRONLY);
+	infifo = open(argv[4], O_RDONLY);
+	
+	if(outfifo == -1 || infifo == -1)
+	{
+		printf("Could not open fifos!\n");
+		return 1;
+	}
 	
 	printf(GREEN "flash = %s, eeprom = %s\n", flfile, eefile);
 
@@ -383,6 +449,8 @@ int main(int argc, char *argv[])
 		avr->state = cpu_Stopped;
 		avr_gdb_init(avr);
 	}
+	
+	pthread_create(&fromrost, NULL, fromrosthread, &netdev);
 
 	int state = cpu_Running;
 	while ((state != cpu_Done) && (state != cpu_Crashed))

@@ -38,6 +38,8 @@ include ${simavr}/Makefile.common
 
 board = ${OBJ}/${target}.elf
 
+LDFLAGS += -lpthread
+
 ${board} : ${OBJ}/${target}.o
 
 ${target}: ${board}
