@@ -56,6 +56,8 @@ typedef struct avr_io_t {
 
 	// optional, a function to free up allocated system resources
 	void (*dealloc)(struct avr_io_t *io);
+	
+	void (*onTick)(struct avr_io_t *io);
 } avr_io_t;
 
 /*

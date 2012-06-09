@@ -226,6 +226,13 @@ void avr_callback_run_gdb(avr_t * avr)
 	// run the cycle timers, get the suggested sleep time
 	// until the next timer is due
 	avr_cycle_count_t sleep = avr_cycle_timer_process(avr);
+	
+	avr_io_t * port = avr->io_port;
+	while (port) {
+		if (port->onTick)
+			port->onTick(port);
+		port = port->next;
+	}
 
 	avr->pc = new_pc;
 
@@ -280,6 +287,13 @@ void avr_callback_run_raw(avr_t * avr)
 	// run the cycle timers, get the suggested sleep time
 	// until the next timer is due
 	avr_cycle_count_t sleep = avr_cycle_timer_process(avr);
+	
+	avr_io_t * port = avr->io_port;
+	while (port) {
+		if (port->onTick)
+			port->onTick(port);
+		port = port->next;
+	}
 
 	avr->pc = new_pc;
 

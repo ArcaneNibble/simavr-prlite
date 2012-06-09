@@ -85,11 +85,6 @@ static uint8_t avr_uart_rxc_read(struct avr_t * avr, avr_io_addr_t addr, void * 
 		if (ri && ti)
 			usleep(1);
 	}
-	// if reception is idle and the fifo is empty, tell whomever there is room
-	if (avr_regbit_get(avr, p->rxen) && uart_fifo_isempty(&p->input)) {
-		avr_raise_irq(p->io.irq + UART_IRQ_OUT_XOFF, 0);
-		avr_raise_irq(p->io.irq + UART_IRQ_OUT_XON, 1);
-	}
 
 	return v;
 }
@@ -203,6 +198,10 @@ static void avr_uart_write(struct avr_t * avr, avr_io_addr_t addr, uint8_t v, vo
 		//Baud rate can be updated by toggling u2x bit
 		avr_uart_baud_write(avr, addr, v, param);
 	}
+	if(addr == p->r_ucsrb) {
+		//Baud rate can be updated by changing bits/byte
+		avr_uart_baud_write(avr, addr, v, param);
+	}
 }
 
 static void avr_uart_irq_input(struct avr_irq_t * irq, uint32_t value, void * param)
@@ -261,6 +260,21 @@ static int avr_uart_ioctl(struct avr_io_t * port, uint32_t ctl, void * io_param)
 	return res;
 }
 
+static void avr_uart_onTick(struct avr_io_t * port)
+{
+	avr_uart_t *p = (avr_uart_t *)port;
+	avr_t *avr = p->io.avr;
+	
+	//printf("DEBUG ONTICK_________________________\n");
+	
+	// if reception is enabled and the fifo is not full, tell whomever there is room
+	if (avr_regbit_get(avr, p->rxen) && !uart_fifo_isfull(&p->input)) {
+		avr_raise_irq(p->io.irq + UART_IRQ_OUT_XON, 1);
+	}
+	
+	p = p;
+}
+
 static const char * irq_names[UART_IRQ_COUNT] = {
 	[UART_IRQ_INPUT] = "8<in",
 	[UART_IRQ_OUTPUT] = "8>out",
@@ -273,6 +287,7 @@ static	avr_io_t	_io = {
 	.reset = avr_uart_reset,
 	.ioctl = avr_uart_ioctl,
 	.irq_names = irq_names,
+	.onTick = avr_uart_onTick,
 };
 
 void avr_uart_init(avr_t * avr, avr_uart_t * p)
@@ -290,8 +305,6 @@ void avr_uart_init(avr_t * avr, avr_uart_t * p)
 
 	// allocate this module's IRQ
 	avr_io_setirqs(&p->io, AVR_IOCTL_UART_GETIRQ(p->name), UART_IRQ_COUNT, NULL);
-	// Only call callbacks when the value change...
-	p->io.irq[UART_IRQ_OUT_XOFF].flags |= IRQ_FLAG_FILTERED;
 
 	avr_register_io_write(avr, p->r_udr, avr_uart_write, p);
 	avr_register_io_read(avr, p->r_udr, avr_uart_read, p);
@@ -302,6 +315,8 @@ void avr_uart_init(avr_t * avr, avr_uart_t * p)
 		avr_register_io_write(avr, p->udrc.enable.reg, avr_uart_write, p);
 	if (p->r_ucsra)
 		avr_register_io_write(avr, p->r_ucsra, avr_uart_write, p);
+	if (p->r_ucsrb)
+		avr_register_io_write(avr, p->r_ucsrb, avr_uart_write, p);
 	if (p->r_ubrrl)
 		avr_register_io_write(avr, p->r_ubrrl, avr_uart_baud_write, p);
 }
