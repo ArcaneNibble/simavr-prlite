@@ -159,6 +159,12 @@ static void avr_timer_tcnt_write(struct avr_t * avr, avr_io_addr_t addr, uint8_t
 	if (tcnt >= p->tov_top)
 		tcnt = 0;
 	
+	//if we aren't running at all, don't do anything
+	//otherwise we have a bug scheduling a timer 0 cycles in the future
+	uint8_t cs = avr_regbit_get_array(avr, p->cs, ARRAY_SIZE(p->cs));
+	if(cs == 0)
+		return;
+	
 	// this involves some magicking
 	// cancel the current timers, recalculate the "base" we should be at, reset the
 	// timer base as it should, and re-schedule the timers using that base.
@@ -408,12 +414,18 @@ static void avr_timer_reset(avr_io_t * port)
 	avr_cycle_timer_cancel(p->io.avr, avr_timer_compa, p);
 	avr_cycle_timer_cancel(p->io.avr, avr_timer_compb, p);
 	avr_cycle_timer_cancel(p->io.avr, avr_timer_compc, p);
+	
+	//clear pending interrupts
+	avr_clear_interrupt(p->io.avr, &p->overflow);
+	avr_clear_interrupt(p->io.avr, &p->icr);
 
 	// check to see if the comparators have a pin output. If they do,
 	// (try) to get the ioport corresponding IRQ and connect them
 	// they will automagically be triggered when the comparator raises
 	// it's own IRQ
 	for (int compi = 0; compi < AVR_TIMER_COMP_COUNT; compi++) {
+		avr_clear_interrupt(p->io.avr, &p->comp[compi].interrupt);
+	
 		p->comp[compi].comp_cycles = 0;
 
 		avr_ioport_getirq_t req = {
