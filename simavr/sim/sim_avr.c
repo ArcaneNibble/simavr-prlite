@@ -92,6 +92,7 @@ void avr_reset(avr_t * avr)
 			port->reset(port);
 		port = port->next;
 	}
+	avr->been_reset = 1;
 }
 
 void avr_sadly_crashed(avr_t *avr, uint8_t signal)
@@ -227,6 +228,13 @@ void avr_callback_run_gdb(avr_t * avr)
 	// until the next timer is due
 	avr_cycle_count_t sleep = avr_cycle_timer_process(avr);
 	
+	//hack to fix reset in wdt
+	if(avr->been_reset)
+	{
+		avr->been_reset = 0;
+		return;
+	}
+	
 	avr_io_t * port = avr->io_port;
 	while (port) {
 		if (port->onTick)
@@ -287,6 +295,13 @@ void avr_callback_run_raw(avr_t * avr)
 	// run the cycle timers, get the suggested sleep time
 	// until the next timer is due
 	avr_cycle_count_t sleep = avr_cycle_timer_process(avr);
+	
+	//hack to fix reset in wdt
+	if(avr->been_reset)
+	{
+		avr->been_reset = 0;
+		return;
+	}
 	
 	avr_io_t * port = avr->io_port;
 	while (port) {

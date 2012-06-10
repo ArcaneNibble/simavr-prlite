@@ -155,6 +155,11 @@ typedef struct avr_t {
 	void (*special_deinit)(struct avr_t * avr);
 	// called at reset time
 	void (*reset)(struct avr_t * avr);
+	
+	//set to 1 to reset instead of crashing to gdb
+	int reboot_on_wdt;
+	//flag
+	int been_reset;
 
 	/*!
 	 * Default AVR core run function.

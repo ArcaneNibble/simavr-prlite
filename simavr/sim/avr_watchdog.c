@@ -33,7 +33,10 @@ static avr_cycle_count_t avr_watchdog_timer(struct avr_t * avr, avr_cycle_count_
 
 	if (!avr_regbit_get(avr, p->watchdog.enable)) {
 		printf("WATCHDOG timer fired and interrupt is not enabled. Quitting\n");
-		avr_sadly_crashed(avr, 10);
+		if(avr->reboot_on_wdt)
+			avr_reset(avr);
+		else
+			avr_sadly_crashed(avr, 10);
 	}
 
 	return 0;
