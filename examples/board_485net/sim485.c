@@ -398,6 +398,15 @@ void fromrosthread(void *a_)
 	}
 }
 
+static void reset(struct avr_t * avr)
+{
+	printf(RED "REBOOT\n" RESET);
+	avr->pc = 0x7000;
+	avr->frequency = 16000000;
+	avr->blsection = 0x7000;
+	avr->state = cpu_Running;
+}
+
 int main(int argc, char *argv[])
 {
 	net_485net_t netdev;
@@ -432,11 +441,10 @@ int main(int argc, char *argv[])
 	
 	avr->special_init = avr_special_init;
 	avr->special_deinit = avr_special_deinit;
+	avr->reset = reset;
 	
+	avr->reboot_on_wdt = 1;
 	avr_init(avr);
-	avr->frequency = 16000000;
-	avr->pc = 0x7000;
-	avr->blsection = 0x7000;
 	
 	init_485hw(avr, &netdev);
 	
