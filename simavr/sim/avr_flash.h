@@ -42,6 +42,8 @@ typedef struct avr_flash_t {
 	avr_regbit_t pgers;		// page erase
 	avr_regbit_t pgwrt;		// page write
 	avr_regbit_t blbset;	// lock bit set
+	avr_regbit_t rwwsre;	// enable rww section
+	int has_rwwsre;
 
 	avr_int_vector_t flash;	// Interrupt vector
 } avr_flash_t;
@@ -51,7 +53,7 @@ void avr_flash_init(avr_t * avr, avr_flash_t * p);
 
 #define AVR_IOCTL_FLASH_SPM		AVR_IOCTL_DEF('f','s','p','m')
 
-#define AVR_SELFPROG_DECLARE(_spmr, _spen, _vector) \
+#define AVR_SELFPROG_DECLARE_NORWW(_spmr, _spen, _vector) \
 	.selfprog = {\
 		.r_spm = _spmr,\
 		.spm_pagesize = SPM_PAGESIZE,\
@@ -64,6 +66,28 @@ void avr_flash_init(avr_t * avr, avr_flash_t * p);
 			.vector = _vector,\
 		},\
 	}
+
+#define AVR_SELFPROG_DECLARE_RWWSRE(_spmr, _spen, _vector) \
+	.selfprog = {\
+		.r_spm = _spmr,\
+		.spm_pagesize = SPM_PAGESIZE,\
+		.selfprgen = AVR_IO_REGBIT(_spmr, _spen),\
+		.pgers = AVR_IO_REGBIT(_spmr, PGERS),\
+		.pgwrt = AVR_IO_REGBIT(_spmr, PGWRT),\
+		.blbset = AVR_IO_REGBIT(_spmr, BLBSET),\
+		.rwwsre = AVR_IO_REGBIT(_spmr, RWWSRE),\
+		.has_rwwsre = 1,\
+		.flash = {\
+			.enable = AVR_IO_REGBIT(_spmr, SPMIE),\
+			.vector = _vector,\
+		},\
+	}
+
+#ifdef RWWSRE
+#define AVR_SELFPROG_DECLARE AVR_SELFPROG_DECLARE_RWWSRE
+#else
+#define AVR_SELFPROG_DECLARE AVR_SELFPROG_DECLARE_NORWW
+#endif
 
 #ifdef __cplusplus
 };

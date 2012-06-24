@@ -71,6 +71,8 @@ static int avr_flash_ioctl(struct avr_io_t * port, uint32_t ctl, void * io_param
 		printf("Writing page %04x (%d)\n", (z / p->spm_pagesize), p->spm_pagesize);
 	} else if (avr_regbit_get(avr, p->blbset)) {
 		printf("Setting lock bits (ignored)\n");
+	} else if (p->has_rwwsre && avr_regbit_get(avr, p->rwwsre)) {
+		printf("Enable RWW section (ignored)\n");
 	} else {
 		z &= ~1;
 		avr->flash[z++] = r01;
