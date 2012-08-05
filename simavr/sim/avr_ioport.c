@@ -76,6 +76,13 @@ static void avr_ioport_ddr_write(struct avr_t * avr, avr_io_addr_t addr, uint8_t
 	avr_core_watch_write(avr, addr, v);
 }
 
+static void avr_ioport_pcifr_write(struct avr_t * avr, avr_io_addr_t addr, uint8_t v, void * param)
+{
+	avr_ioport_t * p = (avr_ioport_t *)param;
+
+	avr_ioport_write(avr, p->r_pcifr, avr->data[p->r_pcifr] & (~v), param);
+}
+
 /*
  * this is our "main" pin change callback, it can be triggered by either the
  * AVR code, or any external piece of code that see fit to do it.
@@ -196,5 +203,6 @@ void avr_ioport_init(avr_t * avr, avr_ioport_t * p)
 	avr_register_io_read(avr, p->r_pin, avr_ioport_read, p);
 	avr_register_io_write(avr, p->r_pin, avr_ioport_pin_write, p);
 	avr_register_io_write(avr, p->r_ddr, avr_ioport_ddr_write, p);
+	avr_register_io_write(avr, p->r_pcifr, avr_ioport_pcifr_write, p);
 }
 

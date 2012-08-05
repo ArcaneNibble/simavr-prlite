@@ -90,6 +90,7 @@ const struct mcu_t SIM_CORENAME = {
 			.vector = PCINT0_vect,
 		},
 		.r_pcint = PCMSK0,
+		.r_pcifr = PCIFR,
 	},
 	.portc = {
 		.name = 'C', .r_port = PORTC, .r_ddr = DDRC, .r_pin = PINC,
@@ -99,6 +100,7 @@ const struct mcu_t SIM_CORENAME = {
 			.vector = PCINT1_vect,
 		},
 		.r_pcint = PCMSK1,
+		.r_pcifr = PCIFR,
 	},
 	.portd = {
 		.name = 'D', .r_port = PORTD, .r_ddr = DDRD, .r_pin = PIND,
@@ -108,6 +110,7 @@ const struct mcu_t SIM_CORENAME = {
 			.vector = PCINT2_vect,
 		},
 		.r_pcint = PCMSK2,
+		.r_pcifr = PCIFR,
 	},
 
 	.uart = {

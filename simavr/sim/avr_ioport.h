@@ -91,6 +91,7 @@ typedef struct avr_ioport_t {
 
 	avr_int_vector_t pcint;	// PCINT vector
 	avr_io_addr_t r_pcint;		// pcint 8 pins mask
+	avr_io_addr_t r_pcifr;
 } avr_ioport_t;
 
 void avr_ioport_init(avr_t * avr, avr_ioport_t * port);
